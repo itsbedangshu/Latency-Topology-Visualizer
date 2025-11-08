@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: dark; }
+
+html, body, #__next { height: 100%; }
+
+body {
+  @apply bg-bg text-white font-inter antialiased;
+}
+
+/* Neon focus ring */
+.focus-neon:focus {
+  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.5);
+}

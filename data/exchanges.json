@@ -1,0 +1,8 @@
+[
+  { "id": "binance-sgp", "exchange": "Binance", "provider": "AWS", "region": "ap-southeast-1", "lat": 1.3521, "lon": 103.8198 },
+  { "id": "bybit-tokyo", "exchange": "Bybit", "provider": "GCP", "region": "asia-northeast1", "lat": 35.6762, "lon": 139.6503 },
+  { "id": "okx-hk", "exchange": "OKX", "provider": "Azure", "region": "eastasia", "lat": 22.3193, "lon": 114.1694 },
+  { "id": "deribit-ams", "exchange": "Deribit", "provider": "AWS", "region": "eu-west-1", "lat": 52.3676, "lon": 4.9041 },
+  { "id": "coinbase-dublin", "exchange": "Coinbase", "provider": "AWS", "region": "eu-west-1", "lat": 53.3498, "lon": -6.2603 },
+  { "id": "kraken-virginia", "exchange": "Kraken", "provider": "AWS", "region": "us-east-1", "lat": 38.9072, "lon": -77.0369 }
+]
