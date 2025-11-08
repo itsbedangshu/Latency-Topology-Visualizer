@@ -2,15 +2,137 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
-
-html, body, #__next { height: 100%; }
-
-body {
-  @apply bg-bg text-white font-inter antialiased;
+/* Design tokens */
+/* Light theme defaults */
+:root {
+  /* RGB triplets for Tailwind rgb(var(--token) / <alpha-value>) */
+  --primary: 99 102 241; /* #6366f1 */
+  --primary-hover: 79 70 229; /* #4f46e5 */
+  --secondary: 16 185 129; /* #10b981 */
+  --accent: 139 92 246; /* #8b5cf6 */
+  --background: 248 250 252; /* #f8fafc */
+  --surface: 255 255 255; /* #ffffff */
+  --text: 15 23 42; /* #0f172a */
+  --text-secondary: 71 85 105; /* #475569 */
+  --border: 226 232 240; /* #e2e8f0 */
+  --success: 16 185 129; /* #10b981 */
+  --warning: 245 158 11; /* #f59e0b */
+  --error: 239 68 68; /* #ef4444 */
+  --radius: 0.5rem;
 }
 
-/* Neon focus ring */
-.focus-neon:focus {
-  box-shadow: 0 0 0 2px rgba(0, 229, 255, 0.5);
+/* Dark theme overrides */
+.dark {
+  --primary: 99 102 241; /* #6366f1 */
+  --primary-hover: 79 70 229; /* #4f46e5 */
+  --secondary: 16 185 129; /* #10b981 */
+  --accent: 139 92 246; /* #8b5cf6 */
+  --background: 15 23 42; /* #0f172a */
+  --surface: 30 41 59; /* #1e293b */
+  --text: 248 250 252; /* #f8fafc */
+  --text-secondary: 148 163 184; /* #94a3b8 */
+  --border: 51 65 85; /* #334155 */
+  --success: 16 185 129; /* #10b981 */
+  --warning: 245 158 11; /* #f59e0b */
+  --error: 239 68 68; /* #ef4444 */
+  --radius: 0.5rem;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply min-h-screen bg-gradient-to-br from-background to-surface font-sans antialiased text-text;
+  }
+
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    background-color: rgb(var(--surface) / 0.5);
+    @apply rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-slate-600 hover:bg-slate-500 rounded-full transition-colors;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: rgb(var(--primary) / 0.2);
+    color: rgb(var(--primary));
+  }
+}
+
+@layer components {
+  /* Focus states */
+  .focus-ring {
+    @apply focus:outline-none rounded-md transition-all duration-200;
+  }
+  .focus-ring:focus-visible {
+    outline: 2px solid rgb(var(--primary) / 0.5);
+    outline-offset: 2px;
+  }
+
+  /* Card */
+  .card {
+    background-color: rgb(var(--surface) / 0.5);
+    @apply backdrop-blur-sm rounded-xl border shadow-lg overflow-hidden transition-all;
+    border-color: rgb(var(--border) / 0.5);
+  }
+  .card:hover {
+    @apply shadow-xl;
+    border-color: rgb(var(--primary) / 0.3);
+  }
+
+  /* Button */
+  .btn {
+    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 inline-flex items-center justify-center gap-2;
+  }
+
+  .btn-primary {
+    background-color: rgb(var(--primary));
+    @apply text-white shadow-md;
+  }
+  .btn-primary:hover {
+    background-color: rgb(var(--primary) / 0.9);
+    @apply shadow-lg;
+  }
+
+  .btn-secondary {
+    @apply text-text border;
+    background-color: rgb(var(--surface));
+    border-color: rgb(var(--border));
+  }
+  .btn-secondary:hover {
+    @apply shadow-glow;
+  }
+
+  /* Input */
+  .input {
+    @apply w-full px-4 py-2 bg-surface border border-border rounded-lg text-text placeholder:text-slate-500;
+  }
+}
+
+@layer utilities {
+  /* Animations */
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
 }

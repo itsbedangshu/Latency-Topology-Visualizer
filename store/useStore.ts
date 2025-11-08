@@ -1,6 +1,11 @@
 import { create } from 'zustand'
 import type { ServerNode, CloudRegion, LatencySample, HistoricalSeriesPoint, Provider, Exchange } from '@/types'
 
+// Why a global store?
+// Components (3D scene, charts, sidebar) all need access to the same data.
+// Zustand gives us a tiny, fast store without the ceremony.
+
+// Filters drive what we draw and summarize across the app.
 interface Filters {
   providers: Record<Provider, boolean>
   exchanges: Exchange[] | null
@@ -10,6 +15,8 @@ interface Filters {
   timeRange: '1h' | '24h' | '7d' | '30d'
 }
 
+// Single source of truth for the app.
+// Tip: keep actions small and synchronous—React will handle re-renders efficiently.
 interface AppState {
   servers: ServerNode[]
   regions: CloudRegion[]
@@ -42,7 +49,15 @@ export const useStore = create<AppState>((set) => ({
   setServers: (servers) => set({ servers }),
   setRegions: (regions) => set({ regions }),
   setConnections: (connections) => set({ connections }),
-  pushHistory: (key, point) => set((s) => ({ history: { ...s.history, [key]: [...(s.history[key] ?? []), point] } })),
+  // Keep time-series small and fast to render: we cap each pair to ~600 points.
+  pushHistory: (key, point) => set((s) => {
+    const prev = s.history[key] ?? []
+    const next = [...prev, point]
+    // Cap to last 600 points (~50 minutes if every 5s)
+    const capped = next.length > 600 ? next.slice(next.length - 600) : next
+    return { history: { ...s.history, [key]: capped } }
+  }),
   setLastUpdate: (t) => set({ lastUpdate: t }),
+  // Partial updates let each control tweak a single field without resetting others.
   setFilters: (f) => set((s) => ({ filters: { ...s.filters, ...f } }))
 }))

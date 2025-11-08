@@ -1,7 +1,7 @@
-// @ts-nocheck
 'use client'
+import React, { memo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, QuadraticBezierLine, Html, Stars, Line } from '@react-three/drei'
+import { OrbitControls, QuadraticBezierLine, Html, Stars, Line, PerformanceMonitor } from '@react-three/drei'
 import { feature } from 'topojson-client'
 import land110m from 'world-atlas/land-110m.json' assert { type: 'json' }
 import { AdditiveBlending } from 'three'
@@ -10,8 +10,10 @@ import serversData from '@/data/exchanges.json'
 import regionsData from '@/data/cloudRegions.json'
 import type { Provider, ServerNode } from '@/types'
 import { useStore } from '@/store/useStore'
-import { startLatencySimulation } from '@/lib/socket'
+import { startLatencySimulation, stopLatencySimulation } from '@/lib/socket'
 
+// How it works: convert latitude/longitude into a 3D point on a sphere.
+// This lets us place markers, lines, and regions directly on the globe.
 function latLonToXYZ(lat: number, lon: number, radius = 1.05) {
   const phi = (90 - lat) * (Math.PI / 180)
   const theta = (lon + 180) * (Math.PI / 180)
@@ -21,7 +23,7 @@ function latLonToXYZ(lat: number, lon: number, radius = 1.05) {
   return [x, y, z] as const
 }
 
-// Equator debug ring removed now that we will use exact coastlines
+
 
 const providerColor: Record<Provider, string> = {
   AWS: '#00ffa3',
@@ -29,34 +31,35 @@ const providerColor: Record<Provider, string> = {
   Azure: '#3b82f6',
 }
 
-function Marker({ node, onHover }: any) {
+const Marker = memo(function Marker({ node, onHover }: any) {
   const pos = useMemo(() => latLonToXYZ(node.lat, node.lon, 1.02), [node.lat, node.lon])
   return (
     <group position={pos as any}>
       <mesh
-        onPointerOver={(e) => {
+        onPointerOver={(e: any) => {
           e.stopPropagation()
           onHover(node)
         }}
-        onPointerOut={(e) => {
+        onPointerOut={(e: any) => {
           e.stopPropagation()
           onHover(null)
         }}
       >
         <sphereGeometry args={[0.012, 16, 16]} />
-        <meshBasicMaterial color={providerColor[node.provider]} />
+        <meshBasicMaterial color={providerColor[node.provider as Provider]} />
       </mesh>
     </group>
   )
-}
+})
 
-function LatencyArcs() {
+const LatencyArcs = memo(function LatencyArcs() {
   const connections = useStore((s) => s.connections)
   const servers = useStore((s) => s.servers)
   const filters = useStore((s) => s.filters)
 
   const serverById = useMemo(() => Object.fromEntries(servers.map((s) => [s.id, s])), [servers])
 
+  // A tiny dot rides along each arc to imply direction and motion.
   function Pulse({ start, end, speed = 0.4, color }: { start: any; end: any; speed?: number; color: string }) {
     const ref = useRef<any>(null)
     const t0 = useRef<number>(Math.random())
@@ -65,7 +68,7 @@ function LatencyArcs() {
       const t = t0.current
       const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2 + 0.9, (start[2] + end[2]) / 2]
       const a = start, b = mid, c = end
-      // Quadratic Bezier interpolation
+      // We follow a quadratic Bezier curve (a → b → c).
       const x = (1 - t) * (1 - t) * a[0] + 2 * (1 - t) * t * b[0] + t * t * c[0]
       const y = (1 - t) * (1 - t) * a[1] + 2 * (1 - t) * t * b[1] + t * t * c[1]
       const z = (1 - t) * (1 - t) * a[2] + 2 * (1 - t) * t * b[2] + t * t * c[2]
@@ -79,6 +82,7 @@ function LatencyArcs() {
     )
   }
 
+  // Centralized visibility check for nodes against current filters.
   function passesNode(node: ServerNode) {
     return (
       filters.providers[node.provider] &&
@@ -98,6 +102,8 @@ function LatencyArcs() {
         const end = latLonToXYZ(b.lat, b.lon, 1.02)
         const mid = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2 + 1.2, (start[2] + end[2]) / 2]
         const color = c.latencyMs < 50 ? '#22c55e' : c.latencyMs <= 100 ? '#eab308' : '#ef4444'
+        const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+        const arcLineWidth = isMobile ? 1.2 : 2
         return (
           <group key={`${c.fromId}-${c.toId}`}>
             <QuadraticBezierLine
@@ -105,7 +111,7 @@ function LatencyArcs() {
               end={end as any}
               mid={mid as any}
               color={color}
-              lineWidth={2}
+              lineWidth={arcLineWidth}
               transparent
               opacity={0.95}
               depthTest={false}
@@ -120,12 +126,14 @@ function LatencyArcs() {
     </group>
   )
 }
+);
 
-// Texture overlay not used for alignment-critical outlines
+// Why coastlines? Using the world-atlas land dataset, we draw thin outlines
+// right on the sphere. This avoids texture seams and stays crisp while zooming.
 
 function CoastlineOutline({ color = '#bfe3ff', opacity = 0.6, radius = 1.012, lineWidth = 0.006 }: { color?: string; opacity?: number; radius?: number; lineWidth?: number }) {
   const segments = useMemo(() => {
-    // Use only coastlines (outer land boundaries) from world-atlas land dataset
+    // We extract only the outer land boundaries (coastlines) from world-atlas.
     const gj: any = feature(land110m as any, (land110m as any).objects.land)
     const segs: Array<[number, number, number][]> = []
     for (const f of gj.features) {
@@ -175,18 +183,44 @@ export default function GlobeScene() {
     setServers(serversData as any)
     setRegions(regionsData as any)
     startLatencySimulation()
+    return () => {
+      stopLatencySimulation()
+    }
   }, [setServers, setRegions])
 
   useEffect(() => {
-    // Debug: verify env var is available on client
+    // Quick sanity check: confirm env variables reach the browser.
     // eslint-disable-next-line no-console
     console.log('NEXT_PUBLIC_MAP_OUTLINE_URL =', process.env.NEXT_PUBLIC_MAP_OUTLINE_URL)
   }, [])
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+  const [quality, setQuality] = useState<'high' | 'low'>(isMobile ? 'low' : 'high')
+
   return (
     <div className="h-[70vh] w-full lg:h-screen">
-      <Canvas camera={{ position: [0, 0, 2.2], fov: 50 }}>
-        <Stars radius={50} depth={30} count={2000} factor={2} saturation={0} fade speed={0.6} />
+      <Canvas
+        camera={{ position: [0, 0, 2.2], fov: 50 }}
+        dpr={[1, 2]}
+        gl={{
+          antialias: true,
+          powerPreference: 'high-performance',
+          stencil: false,
+          depth: true,
+          alpha: true,
+        }}
+      >
+        <PerformanceMonitor onDecline={() => setQuality('low')} onIncline={() => setQuality(isMobile ? 'low' : 'high')}>
+          <Stars
+            radius={50}
+            depth={30}
+            count={quality === 'low' ? (isMobile ? 600 : 1200) : (isMobile ? 900 : 2000)}
+            factor={2}
+            saturation={0}
+            fade
+            speed={0.6}
+          />
+        </PerformanceMonitor>
         <ambientLight intensity={0.15} />
         <directionalLight position={[5, 5, 5]} intensity={0.6} />
 
@@ -221,7 +255,7 @@ export default function GlobeScene() {
         {/* Latency arcs */}
         <LatencyArcs />
 
-        <OrbitControls enablePan={true} enableZoom={true} enableRotate={true} makeDefault />
+        <OrbitControls enablePan enableZoom enableRotate makeDefault enableDamping dampingFactor={0.08} />
 
         {/* Hover info card */}
         {hovered ? (

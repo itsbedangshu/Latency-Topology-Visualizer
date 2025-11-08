@@ -1,6 +1,8 @@
 import { useStore } from '@/store/useStore'
 import type { LatencySample, ServerNode } from '@/types'
 
+// Quick distance helper: how far apart are two points on Earth?
+// We use the haversine formula to get great-circle distance in kilometers.
 function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371
   const dLat = ((lat2 - lat1) * Math.PI) / 180
@@ -10,6 +12,9 @@ function haversine(lat1: number, lon1: number, lat2: number, lon2: number) {
   return R * c
 }
 
+// Turn distance into a rough latency estimate + a bit of jitter so
+// the scene feels alive. Swap this with real measurements when you
+// hook up a backend or WebSocket feed.
 function latencyFromDistance(km: number) {
   const base = km / 200
   const jitter = Math.random() * 20
@@ -18,12 +23,14 @@ function latencyFromDistance(km: number) {
 
 let interval: number | null = null
 
+// Start a lightweight simulator that emits pairwise latencies.
+// Tip: replace this with a WebSocket client; the store API stays the same.
 export function startLatencySimulation() {
   if (interval) return
   const get = useStore.getState
-  const setConnections = useStore.getState().setConnections
-  const pushHistory = useStore.getState().pushHistory
-  const setLastUpdate = useStore.getState().setLastUpdate
+  const setConnections = get().setConnections
+  const pushHistory = get().pushHistory
+  const setLastUpdate = get().setLastUpdate
 
   interval = (setInterval(() => {
     const servers = get().servers
@@ -37,10 +44,12 @@ export function startLatencySimulation() {
         const latencyMs = Math.round(latencyFromDistance(km))
         const timestamp = Date.now()
         samples.push({ fromId: a.id, toId: b.id, latencyMs, timestamp })
-        const key = `${a.id}::${b.id}`
-        const prev = get().history[key] ?? []
-        const values = [...prev.slice(-59), { t: timestamp, min: latencyMs - 5, max: latencyMs + 5, avg: latencyMs }]
-        pushHistory(key, values[values.length - 1])
+        // Performance note: only persist time-series when the user cares.
+        // This keeps the app lean in realtime mode.
+        if (get().filters.viewMode === 'historical') {
+          const key = `${a.id}::${b.id}`
+          pushHistory(key, { t: timestamp, min: latencyMs - 5, max: latencyMs + 5, avg: latencyMs })
+        }
       }
     }
     setConnections(samples)
@@ -48,6 +57,7 @@ export function startLatencySimulation() {
   }, 5000)) as unknown as number
 }
 
+// Cleanly stop the simulator. Call this on unmount to avoid leaks.
 export function stopLatencySimulation() {
   if (interval) clearInterval(interval)
   interval = null
