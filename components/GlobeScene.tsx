@@ -23,7 +23,7 @@ function latLonToXYZ(lat: number, lon: number, radius = 1.05) {
   return [x, y, z] as const
 }
 
-
+ 
 
 const providerColor: Record<Provider, string> = {
   AWS: '#00ffa3',
